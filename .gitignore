@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# Electron
+electron-builder/
+*.blockmap
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# Desktop services
+.Spotlight-V100
+.Trashes
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS generated files
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Claude
+.claude/
