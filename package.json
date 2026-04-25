@@ -11,10 +11,17 @@
     "electron:build": "vite build && electron-builder",
     "package": "electron-builder"
   },
-  "keywords": ["desktop-pet", "ai", "monitoring", "electron", "react"],
+  "keywords": [
+    "desktop-pet",
+    "ai",
+    "monitoring",
+    "electron",
+    "react"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "lottie-react": "^2.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
@@ -29,28 +36,72 @@
   "build": {
     "appId": "com.petstareai.app",
     "productName": "PetStareAI",
+    "asar": true,
+    "asarUnpack": [],
+    "compression": "maximum",
     "mac": {
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         }
       ],
-      "icon": "assets/icon.icns"
+      "icon": "assets/icon.icns",
+      "identity": null,
+      "hardenedRuntime": false
+    },
+    "dmg": {
+      "title": "PetStareAI",
+      "icon": "assets/icon.icns",
+      "iconSize": 80,
+      "contents": [
+        { "x": 150, "y": 150 },
+        { "x": 400, "y": 150, "type": "link", "path": "/Applications" },
+        { "x": 275, "y": 300, "type": "file", "path": "安装说明.txt" }
+      ],
+      "window": {
+        "width": 550,
+        "height": 400
+      }
     },
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "node_modules/**/*"
+      "assets/**/*",
+      "package.json",
+      "!**/.git/**",
+      "!**/.github/**",
+      "!node_modules/**",
+      "!**/node_modules/**",
+      "!*.log",
+      "!*.md",
+      "!*.markdown",
+      "!*.yml",
+      "!*.yaml",
+      "!*.json.lock",
+      "!LICENSE",
+      "!LICENSE.txt",
+      "!.claude/**",
+      "!.vscode/**",
+      "!**/*.map",
+      "!**/*.ts",
+      "!**/*.d.ts"
     ],
     "directories": {
       "output": "dist"
     },
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ]
     },
     "linux": {
-      "target": ["deb"]
+      "target": [
+        "deb"
+      ]
     }
   }
 }

@@ -1,0 +1,374 @@
+/* Base Cat Face Styles */
+.cat-face {
+  position: relative;
+  width: 31px;
+  height: 27px;
+  margin: 8px auto 6px;
+  pointer-events: none;
+  -webkit-app-region: drag;
+}
+
+/* Ears */
+.cat-face .ears {
+  position: absolute;
+  top: -8px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2px;
+  box-sizing: border-box;
+}
+
+.cat-face .ear {
+  width: 9px;
+  height: 11px;
+  background: linear-gradient(135deg, #5B6773 0%, #4B5563 100%);
+  border-radius: 50% 50% 0 0;
+  overflow: hidden;
+}
+
+.cat-face .ear-inner {
+  position: absolute;
+  bottom: 0;
+  left: 3px;
+  width: 60%;
+  height: 45%;
+  background: linear-gradient(135deg, #FDA4AF 0%, #FCA5A5 100%);
+  border-radius: 50% 50% 0 0;
+  opacity: 0.95;
+}
+
+.cat-face .ear.left {
+  transform: rotate(-18deg);
+}
+
+.cat-face .ear.right {
+  transform: rotate(18deg);
+}
+
+/* Idle animation - gentle ear movement */
+.cat-face-idle .ear.left {
+  animation: idleEarLeft 4s ease-in-out infinite;
+}
+
+.cat-face-idle .ear.right {
+  animation: idleEarRight 4s ease-in-out infinite;
+}
+
+.cat-face-idle .paw {
+  animation: idlePaw 4s ease-in-out infinite;
+}
+
+@keyframes idleEarLeft {
+  0%, 30%, 70%, 100% { transform: rotate(-18deg); }
+  50% { transform: rotate(-32deg) translateY(-3px); }
+}
+
+@keyframes idleEarRight {
+  0%, 30%, 70%, 100% { transform: rotate(18deg); }
+  50% { transform: rotate(32deg) translateY(-3px); }
+}
+
+@keyframes idlePaw {
+  0%, 30%, 70%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Busy animation - tapping paws nervously */
+.cat-face-busy .paw {
+  animation: busyTap 0.3s ease-in-out infinite alternate;
+}
+
+.cat-face-busy .paw:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.cat-face-busy .paw:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+@keyframes busyTap {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-3px); }
+}
+
+/* Nose - removed */
+.cat-face .nose {
+  display: none;
+}
+
+/* Whiskers */
+.cat-face .whiskers {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  width: 100%;
+}
+
+.cat-face .whisker {
+  position: absolute;
+  width: 7px;
+  height: 1px;
+  background: linear-gradient(to right, #4B5563 0%, #6B7280 100%);
+  opacity: 0.85;
+  border-radius: 1px;
+}
+
+.cat-face .whisker.left.top {
+  left: 0px;
+  top: 0px;
+  transform: rotate(6deg);
+}
+
+.cat-face .whisker.left.middle {
+  left: -2px;
+  top: 7px;
+  transform: rotate(0deg);
+}
+
+.cat-face .whisker.left.bottom {
+  left: 0px;
+  top: 14px;
+  transform: rotate(-6deg);
+}
+
+.cat-face .whisker.right.top {
+  right: 0px;
+  top: 0px;
+  transform: rotate(-6deg);
+}
+
+.cat-face .whisker.right.middle {
+  right: -2px;
+  top: 7px;
+  transform: rotate(0deg);
+}
+
+.cat-face .whisker.right.bottom {
+  right: 0px;
+  top: 14px;
+  transform: rotate(6deg);
+}
+
+/* Eyes */
+.cat-face .eyes {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 7px;
+  margin-bottom: 5px;
+}
+
+.cat-face .eye {
+  width: 7px;
+  height: 7px;
+  background: #4B5563;
+  background: radial-gradient(circle at 30% 30%, #55606e 0%, #4B5563 100%);
+  border-radius: 50%;
+  position: relative;
+}
+
+.cat-face .pupil {
+  width: 1.5px;
+  height: 1.5px;
+  background: #111827;
+  border-radius: 50%;
+  position: absolute;
+  left: 2.5px;
+  top: 2.5px;
+}
+
+.cat-face .pupil-highlight {
+  display: none;
+}
+
+/* Blush */
+.cat-face .blush {
+  position: absolute;
+  width: 5px;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(254, 205, 211, 0.8) 0%, rgba(254, 205, 211, 0.5) 100%);
+  border-radius: 50%;
+  bottom: 8px;
+  animation: blushPulse 2s ease-in-out infinite;
+}
+
+.cat-face .blush.left {
+  left: 0px;
+}
+
+.cat-face .blush.right {
+  right: 0px;
+}
+
+@keyframes blushPulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+/* Mouth teeth for happy states */
+.cat-face .mouth-teeth {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 2px;
+  background: white;
+  border-radius: 0 0 2px 2px;
+}
+
+.mouth {
+  width: 11px;
+  height: 6px;
+  border: 1px solid #5D4E37;
+  border-top: none;
+  border-radius: 0 0 9px 9px;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ============== State Specific Styles ============== */
+
+/* IDLE - Normal smiling */
+
+.cat-face-idle .mouth {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05) translateY(-1px); }
+}
+
+/* BUSY - Nervous / Waiting */
+.cat-face-busy .mouth {
+  width: 4px;
+  height: 4px;
+  border: 1px solid #4B5563;
+  border-radius: 50%;
+  animation: nervous 0.5s ease-in-out infinite;
+}
+
+@keyframes nervous {
+  0%, 100% { transform: translateX(-1px); }
+  50% { transform: translateX(1px); }
+}
+
+.cat-face-busy .eye {
+  animation: dart 0.3s ease-in-out infinite;
+}
+
+@keyframes dart {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(1px); }
+}
+
+/* SUCCESS - Happy / Big smile */
+.cat-face-success .mouth {
+  width: 14px;
+  height: 7px;
+  border-bottom: 2px solid #4B5563;
+  border-radius: 0 0 11px 11px;
+  animation: happyBounce 0.5s ease-out;
+  background: transparent;
+}
+
+@keyframes happyBounce {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* HAPPY-PLAY - Temporary happy reaction after clicking a ball */
+.cat-face-happy-play {
+  animation: happyPlayBounce 0.5s ease-out;
+}
+
+.cat-face-happy-play .mouth {
+  width: 15px;
+  height: 8px;
+  border-bottom: 2px solid #4B5563;
+  border-radius: 0 0 12px 12px;
+  background: transparent;
+}
+
+@keyframes happyPlayBounce {
+  0% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(-2px) scale(1.08); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* ERROR - Sad / Frown */
+.cat-face-error .mouth {
+  width: 11px;
+  height: 1.5px;
+  background: #4B5563;
+  border-radius: 1px;
+  transform: rotate(180deg);
+  border-top: none;
+}
+
+.cat-face-error .eye {
+  opacity: 0.7;
+}
+
+/* SLEEPING - Closed eyes, slow breathing */
+.cat-face-sleeping .eye {
+  height: 3px;
+  border-radius: 50% 50% 40% 40%;
+  background: #5D4E37;
+  margin-top: 12px;
+}
+
+.cat-face-sleeping .pupil {
+  display: none;
+}
+
+.cat-face-sleeping .mouth {
+  width: 8px;
+  height: 0.5px;
+  background: #4B5563;
+  border-radius: 1px;
+  border: none;
+  animation: sleepBreathe 5s ease-in-out infinite;
+}
+
+@keyframes sleepBreathe {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Paws */
+.cat-face .paws {
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+}
+
+.cat-face .paw {
+  width: 10px;
+  height: 6px;
+  background: linear-gradient(135deg, #5B6773 0%, #4B5563 100%);
+  border-radius: 0 0 8px 8px;
+  position: relative;
+}
+
+.cat-face .paw .toe {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #FDA4AF;
+  border-radius: 50%;
+  bottom: 0px;
+}
+
+.cat-face .paw .toe:nth-child(1) { left: 1px; }
+.cat-face .paw .toe:nth-child(2) { left: 3px; }
+.cat-face .paw .toe:nth-child(3) { right: 3px; }
+.cat-face .paw .toe:nth-child(4) { right: 1px; }

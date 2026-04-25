@@ -1,0 +1,196 @@
+.mini-game {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 70px;
+  height: 50px;
+  z-index: 10;
+  border-radius: 25px;
+  opacity: 0;
+  /* Allow clicks to pass through empty areas to the cat behind */
+  pointer-events: none;
+  /* Disable drag region to allow clicks on balls */
+  -webkit-app-region: drag;
+  transition: all 0.3s ease;
+}
+
+.mini-game--active {
+  width: 180px;
+  height: 130px;
+  opacity: 1;
+  /* Container allows dragging on empty areas, interactive elements will override */
+  pointer-events: none;
+  -webkit-app-region: drag;
+}
+
+.mini-game__score {
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  background: rgba(251, 191, 36, 0.95);
+  border-radius: 8px;
+  padding: 2px 6px;
+  box-shadow: none;
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+  height: 20px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+
+.mini-game__score-value {
+  font-size: 12px;
+  font-weight: bold;
+  color: #6366f1;
+  animation: scoreBounce 0.2s ease-out;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes scoreBounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.mini-game__balls {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.mini-game__ball {
+  position: absolute;
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: auto;
+  animation: popIn 0.3s ease-out, ballBreathe 2s ease-in-out infinite;
+  transition: transform 0.1s;
+}
+
+.mini-game__ball:active {
+  transform: scale(0.8);
+}
+
+@keyframes ballBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
+.mini-game__ball {
+  animation: popIn 0.3s ease-out, ballBreathe 1.5s ease-in-out infinite;
+  transition: transform 0.1s;
+  position: relative;
+  overflow: hidden;
+}
+
+.mini-game__ball--special {
+  border: none;
+}
+
+.mini-game__ball-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 6px;
+  font-weight: bold;
+  color: white;
+  text-align: center;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@keyframes popIn {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes popOut {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+
+.mini-game__floating-texts {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.mini-game__floating-text {
+  position: absolute;
+  font-size: 12px;
+  font-weight: bold;
+  color: #6366f1;
+  pointer-events: none;
+  transition: top 0.1s linear, opacity 0.1s linear;
+}
+
+.mini-game__menu-btn {
+  position: absolute;
+  top: 16px;
+  right: 0;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(100, 100, 100, 0.8);
+  color: white;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+  z-index: 30;
+  height: 20px;
+  box-sizing: border-box;
+
+  &:hover {
+    background: rgba(80, 80, 80, 0.9);
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
+}
+
+.mini-game__dropdown-menu {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  z-index: 40;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+  overflow: hidden;
+}
+
+.mini-game__menu-item {
+  padding: 6px 12px;
+  font-size: 11px;
+  color: #ef4444;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+
+  &:hover {
+    background: #fef2f2;
+  }
+}

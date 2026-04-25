@@ -1,0 +1,53 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bodyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F0F0F0;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="innerEar" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FDA4AF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FCA5A5;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="512" cy="512" r="480" fill="#6366f1"/>
+
+  <!-- Cat body -->
+  <ellipse cx="512" cy="620" rx="280" ry="220" fill="url(#bodyGradient)"/>
+
+  <!-- Head -->
+  <circle cx="512" cy="380" r="200" fill="url(#bodyGradient)"/>
+
+  <!-- Ears -->
+  <path d="M 350 280 L 280 140 L 400 220 Z" fill="url(#bodyGradient)" transform="rotate(-18 340 210)"/>
+  <path d="M 674 280 L 744 140 L 624 220 Z" fill="url(#bodyGradient)" transform="rotate(18 684 210)"/>
+
+  <!-- Inner ears -->
+  <path d="M 325 260 L 295 190 L 370 230 Z" fill="url(#innerEar)" transform="rotate(-18 330 220)" opacity="0.95"/>
+  <path d="M 699 260 L 729 190 L 654 230 Z" fill="url(#innerEar)" transform="rotate(18 694 220)" opacity="0.95"/>
+
+  <!-- Eyes -->
+  <circle cx="430" cy="350" r="35" fill="#111827"/>
+  <circle cx="594" cy="350" r="35" fill="#111827"/>
+
+  <!-- Pupil highlight -->
+  <circle cx="420" cy="340" r="8" fill="white" opacity="0.8"/>
+  <circle cx="584" cy="340" r="8" fill="white" opacity="0.8"/>
+
+  <!-- Blush -->
+  <ellipse cx="340" cy="400" rx="35" ry="20" fill="rgba(254, 205, 211, 0.8)"/>
+  <ellipse cx="684" cy="400" rx="35" ry="20" fill="rgba(254, 205, 211, 0.8)"/>
+
+  <!-- Whiskers -->
+  <line x1="312" y1="360" x2="220" y2="340" stroke="#888888" stroke-width="6" opacity="0.85"/>
+  <line x1="312" y1="390" x2="220" y2="390" stroke="#888888" stroke-width="6" opacity="0.85"/>
+  <line x1="312" y1="420" x2="220" y2="440" stroke="#888888" stroke-width="6" opacity="0.85"/>
+
+  <line x1="712" y1="360" x2="804" y2="340" stroke="#888888" stroke-width="6" opacity="0.85"/>
+  <line x1="712" y1="390" x2="804" y2="390" stroke="#888888" stroke-width="6" opacity="0.85"/>
+  <line x1="712" y1="420" x2="804" y2="440" stroke="#888888" stroke-width="6" opacity="0.85"/>
+
+  <!-- Smile mouth -->
+  <path d="M 412 460 Q 512 520 612 460" stroke="#333333" stroke-width="8" fill="none" stroke-linecap="round"/>
+</svg>
