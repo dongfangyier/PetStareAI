@@ -172,9 +172,9 @@
   position: absolute;
   top: 42px;
   right: 0;
-  background: white;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   border: 1px solid #e5e7eb;
   z-index: 40;
   pointer-events: auto;
@@ -183,12 +183,13 @@
 }
 
 .mini-game__menu-item {
-  padding: 6px 12px;
-  font-size: 11px;
+  padding: 4px 10px;
+  font-size: 9px;
   color: #ef4444;
   cursor: pointer;
   white-space: nowrap;
   -webkit-app-region: no-drag;
+  font-weight: 500;
 
   &:hover {
     background: #fef2f2;

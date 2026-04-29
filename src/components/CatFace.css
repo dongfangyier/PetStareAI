@@ -161,22 +161,16 @@
 }
 
 .cat-face .eye {
-  width: 7px;
-  height: 7px;
-  background: #4B5563;
-  background: radial-gradient(circle at 30% 30%, #55606e 0%, #4B5563 100%);
+  width: 8px;
+  height: 8px;
+  background: radial-gradient(circle at 30% 30%, #6B7280 0%, #4B5563 100%);
   border-radius: 50%;
   position: relative;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .cat-face .pupil {
-  width: 1.5px;
-  height: 1.5px;
-  background: #111827;
-  border-radius: 50%;
-  position: absolute;
-  left: 2.5px;
-  top: 2.5px;
+  display: none;
 }
 
 .cat-face .pupil-highlight {
