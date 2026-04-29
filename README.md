@@ -6,7 +6,7 @@
 
 # PetStareAI - 你的 AI 桌面宠物
 
-agent长任务工作时，你在做什么打发时间？一只可爱的桌面宠物，停留在你的屏幕上监控你的 AI 编程工具。当 AI 在工作时，你可以玩小游戏打发时间！（当前只支持claudecode）。宠物始终置顶，可以在任何页面看到 Claude 任务是否已经执行完成。
+agent长任务工作时，你在做什么打发时间？一只可爱的桌面宠物，停留在你的屏幕上监控你的 AI 编程工具。当 AI 在工作时，你可以玩小游戏打发时间！宠物很调皮，有时候会逗你玩～ 宠物始终置顶，可以在任何页面看到 AI 任务是否已经执行完成。
 
 <div align="center">
   <img src="assets/cat-icon.svg" alt="PetStareAI" width="200">
@@ -15,21 +15,16 @@ agent长任务工作时，你在做什么打发时间？一只可爱的桌面宠
 ## ✨ 功能特性
 
 - 🐱 **可爱动画桌面宠物** - 始终置顶在所有窗口之上
-- 👀 **实时监控 AI 工具**:
-  - ✅ **Claude Code (VSCode 扩展)** - 完整支持
-  - ✅ **Claude Code (终端 CLI)** - 完整支持
-  - ⚙️ **Claude Desktop** - 待开发
-  - ⚙️ **Cursor** - 待开发
-  - ⚙️ **ChatGPT** - 待开发
-  - ⚙️ **Gemini** - 待开发
-  - ⚙️ **OpenCode** - 待开发
-  - ⚙️ **Ollama** - 待开发
-  - ⚙️ **LM Studio** - 待开发
+- 👀 **实时监控 AI 工具** (可扩展插件架构):
+  - ✅ Claude Code (VSCode 扩展)
+  - ✅ Claude Code (终端 CLI)
+  - ✅ OpenCode CLI
+  - 🚧 OpenCode App - 进行中
+  - ⚙️ Cursor, Codex, ChatGPT, Gemini, Ollama 等 - 待开发
 - 🎮 **等待小游戏** - 当 AI 在运行时，点击弹出的彩球打发时间！
 - 😺 **不同状态不同表情**:
   - 空闲：平静呼吸
   - 运行中：紧张等待
-  - 完成：开心
   - 睡眠：长时间空闲后打瞌睡
 - 🖱️ **完整拖拽** - 把猫拖到桌面任意位置
 - ✨ **透明区域点击穿透** - 不阻挡下层应用的点击
@@ -115,7 +110,8 @@ npm run package
 ```
 PetStareAI/
 ├── electron/
-│   └── main.js                 # Electron 主进程 - 进程监控、窗口管理
+│   ├── main.js                 # Electron 主进程 - 进程监控、窗口管理、IPC
+│   └── detectors/              # 🔌 可扩展插件式检测架构
 ├── src/
 │   ├── components/
 │   │   ├── CatFace.jsx         # 带状态表情的动画猫咪

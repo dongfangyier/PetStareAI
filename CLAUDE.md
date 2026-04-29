@@ -14,6 +14,7 @@ This is a desktop pet application that monitors AI coding tools and entertains y
 ## Project Structure
 
 - `electron/main.js` - Electron main process: process monitoring, window management, IPC
+- `electron/detectors/` - 🔌 Extensible detector plugin architecture
 - `src/App.jsx` - Main React component, handles state and IPC
 - `src/components/CatFace.jsx` - Animated cat face with 5 states
 - `src/components/MiniGame.jsx` - Click-to-pop balls mini-game for when AI is busy
@@ -23,7 +24,13 @@ This is a desktop pet application that monitors AI coding tools and entertains y
 
 ## Key Features
 
-- Multi-tool AI monitoring (Claude Code, Claude Desktop, Cursor, ChatGPT, Gemini, Ollama, etc.)
+- Multi-tool AI monitoring (extensible plugin architecture)
+  - ✅ Claude Code (VSCode extension)
+  - ✅ Claude Code (terminal CLI)
+  - ✅ OpenCode CLI
+  - 🚧 OpenCode App - In progress
+  - ⚙️ Cursor, Codex, ChatGPT, Gemini, Ollama and more - Planned
+- The cat is playful! It might tease you sometimes 😺
 - Animated cat expressions for each state (idle/busy/success/error/sleeping)
 - Mini-game: click popping balls while waiting for AI
 - Draggable, always-on-top, transparent window

@@ -6,7 +6,7 @@
 
 # PetStareAI - Your AI Desktop Pet
 
-What do you do to pass the time while your AI agent is working on a long task? A cute desktop pet that stays on your screen monitoring your AI coding tools. Play a mini-game while waiting for your AI to finish working! (Currently only supports Claude Code). The pet always stays on top, so you can see if Claude's task has completed from any page.
+What do you do to pass the time while your AI agent is working on a long task? A cute desktop pet that stays on your screen monitoring your AI coding tools. The cat is playful and might tease you sometimes 😺. Play a mini-game while waiting for your AI to finish working! The pet always stays on top, so you can see if your AI task has completed from any page.
 
 <div align="center">
   <img src="assets/cat-icon.svg" alt="PetStareAI" width="200">
@@ -15,21 +15,16 @@ What do you do to pass the time while your AI agent is working on a long task? A
 ## ✨ Features
 
 - 🐱 **Cute animated desktop pet** that stays on top of all windows
-- 👀 **Monitors AI tools**:
-  - ✅ **Claude Code (VSCode extension)** - Fully supported
-  - ✅ **Claude Code (CLI terminal)** - Fully supported
-  - ⚙️ **Claude Desktop** - Pending development
-  - ⚙️ **Cursor** - Pending development
-  - ⚙️ **ChatGPT** - Pending development
-  - ⚙️ **Gemini** - Pending development
-  - ⚙️ **OpenCode** - Pending development
-  - ⚙️ **Ollama** - Pending development
-  - ⚙️ **LM Studio** - Pending development
+- 👀 **Monitors AI tools** (extensible plugin architecture):
+  - ✅ Claude Code (VSCode extension)
+  - ✅ Claude Code (terminal CLI)
+  - ✅ OpenCode CLI
+  - 🚧 OpenCode App - In progress
+  - ⚙️ Cursor, Codex, ChatGPT, Gemini, Ollama and more - Planned
 - 🎮 **Mini-game while waiting**: When AI is working, click popping colored balls to pass the time!
 - 😺 **Different expressions for different states**:
   - Idle: Calm breathing
   - Running: Nervously waiting
-  - Success: Happy
   - Sleeping: Dozes off after long idle periods
 - 🖱️ **Fully draggable** - move the cat anywhere on your desktop
 - ✨ **Click-through transparent areas** - doesn't block clicks to apps below
@@ -116,7 +111,8 @@ When your AI is busy:
 ```
 PetStareAI/
 ├── electron/
-│   └── main.js                 # Electron main process - process monitoring, window management
+│   ├── main.js                 # Electron main process - process monitoring, window management
+│   └── detectors/              # 🔌 Extensible detector plugin architecture
 ├── src/
 │   ├── components/
 │   │   ├── CatFace.jsx         # Animated cat face with state-based expressions
