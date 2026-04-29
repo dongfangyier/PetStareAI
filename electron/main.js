@@ -19,10 +19,16 @@ let lastReportedIsRunning = false;
 const REQUIRES_INACTIVE_COUNT = 2; // 需要连续 2 次检测不活跃才切换 idle (4 seconds) - 减少延迟更响应
 let consecutiveInactiveCount = 0;
 
-// VSCode 日志文件列表缓存 - 避免每次都 find 拖慢速度
+// VSCode 日志文件列表缓存
 let cachedVSCodeLogFiles = null;
 let lastVSCodeLogCacheRefresh = 0;
-const VSCODE_LOG_CACHE_TTL = 30 * 1000; // 30 秒刷新一次缓存（缓存的只是文件列表，不是日志内容）
+const VSCODE_LOG_CACHE_TTL = 30 * 1000;
+
+// 终端 Claude 状态滑动窗口缓存 - 解决单次采样漏检问题
+// 原理：Claude 生成时大部分时间是 S，但会频繁短暂变成 R
+// 连续采样窗口内只要有一次 R 就算活跃
+let terminalClaudeStateWindow = {}; // { pid: [bool, bool, bool] }
+const TERMINAL_STATE_WINDOW_SIZE = 3; // 连续 3 次检测，只要有一次 R 就算活跃
 
 // List of AI tools to monitor - process name patterns
 const AI_TOOLS = [
@@ -469,15 +475,81 @@ function checkAIRunning(callback) {
              !p.commandLower.includes('claude-code');
     });
 
+    // 终端 Claude 检测 - 改进方案（解决 idle 误报）
+    // 1. 有活跃子进程 = 正在执行工具/Bash 命令
+    // 2. 滑动窗口：连续 3 次检测中只要有一次 R 状态 = 活跃
+    // 3. 会话日志持续写入：检查 ~/.claude/projects/*/sessionId.jsonl 最近 3 秒有修改
+    //    （history.jsonl 不用了：只在用户发消息时更新，导致 idle 后误报）
+    let sessionLogActive = false;
+    try {
+      const projectsDir = require('os').homedir() + '/.claude/projects/';
+      if (fs.existsSync(projectsDir)) {
+        // 找出所有终端 Claude 会话对应的项目目录
+        for (const proc of terminalClaudeProcesses) {
+          const sessionPath = require('os').homedir() + `/.claude/sessions/${proc.pid}.json`;
+          if (fs.existsSync(sessionPath)) {
+            try {
+              const sessionData = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
+              // 查找该会话对应的 jsonl 日志文件
+              const escapedCwd = sessionData.cwd.replace(/\//g, '-');
+              const projectPath = projectsDir + escapedCwd + '/' + sessionData.sessionId + '.jsonl';
+              if (fs.existsSync(projectPath)) {
+                const mtime = fs.statSync(projectPath).mtime.getTime();
+                // 会话日志 3 秒内有写入 = AI 正在生成
+                if (Date.now() - mtime < 3000) {
+                  sessionLogActive = true;
+                  break;
+                }
+              }
+            } catch (e) {}
+          }
+        }
+      }
+    } catch (e) {}
+
     let terminalActiveCount = 0;
     for (const proc of terminalClaudeProcesses) {
-      // 终端 claude：只看进程是否为 running 状态
-      const isActive = proc.stat === 'R';
+      let hasActiveChildren = false;
+      for (const child of processes) {
+        if (child.ppid === proc.pid) {
+          const cmd = child.commandLower;
+          if (cmd.includes('grep') || cmd.includes(' ps ') ||
+              cmd.includes('tail') || cmd.includes('find') ||
+              cmd.includes('head')) {
+            continue;
+          }
+          if (child.stat === 'R') {
+            hasActiveChildren = true;
+            break;
+          }
+        }
+      }
+
+      // 初始化或更新滑动窗口
+      if (!terminalClaudeStateWindow[proc.pid]) {
+        terminalClaudeStateWindow[proc.pid] = [];
+      }
+      const window = terminalClaudeStateWindow[proc.pid];
+      window.unshift(proc.stat === 'R');
+      if (window.length > TERMINAL_STATE_WINDOW_SIZE) {
+        window.pop();
+      }
+
+      const hasRInWindow = window.some(v => v);
+      const isActive = hasActiveChildren || hasRInWindow || sessionLogActive;
+
       if (isActive) {
         terminalActiveCount++;
-        console.log('✓ Terminal Claude active:', proc.pid, `stat=${proc.stat}`);
+        console.log('✓ Terminal Claude active:', proc.pid, `stat=${proc.stat}, windowR=${hasRInWindow}, children=${hasActiveChildren}, log=${sessionLogActive}`);
       } else {
         console.log('○ Terminal Claude idle:', proc.pid, `stat=${proc.stat}`);
+      }
+    }
+
+    // 清理已经不存在的进程的状态缓存
+    for (const pid of Object.keys(terminalClaudeStateWindow)) {
+      if (!terminalClaudeProcesses.find(p => p.pid == pid)) {
+        delete terminalClaudeStateWindow[pid];
       }
     }
 
