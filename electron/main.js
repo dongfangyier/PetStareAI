@@ -3,6 +3,9 @@ const path = require('path');
 const { exec } = require('child_process');
 const fs = require('fs');
 
+// ===== 可扩展检测架构 =====
+const { detectorManager } = require('./detectors');
+
 let mainWindow;
 let tray = null;
 let monitoringInterval = null;
@@ -18,30 +21,6 @@ let lastReportedTotalTasks = 0;
 let lastReportedIsRunning = false;
 const REQUIRES_INACTIVE_COUNT = 2; // 需要连续 2 次检测不活跃才切换 idle (4 seconds) - 减少延迟更响应
 let consecutiveInactiveCount = 0;
-
-// VSCode 日志文件列表缓存
-let cachedVSCodeLogFiles = null;
-let lastVSCodeLogCacheRefresh = 0;
-const VSCODE_LOG_CACHE_TTL = 30 * 1000;
-
-// 终端 Claude 状态滑动窗口缓存 - 解决单次采样漏检问题
-// 原理：Claude 生成时大部分时间是 S，但会频繁短暂变成 R
-// 连续采样窗口内只要有一次 R 就算活跃
-let terminalClaudeStateWindow = {}; // { pid: [bool, bool, bool] }
-const TERMINAL_STATE_WINDOW_SIZE = 3; // 连续 3 次检测，只要有一次 R 就算活跃
-
-// List of AI tools to monitor - process name patterns
-const AI_TOOLS = [
-  { id: 'claude', name: 'Claude', patterns: ['Claude', 'claude', 'Claude Desktop'] },
-  { id: 'claude-code', name: 'Claude Code', patterns: ['claude-code', 'Claude Code', 'claude'] },
-  { id: 'opencode', name: 'OpenCode', patterns: ['OpenCode', 'opencode', 'open code'] },
-  { id: 'chatgpt', name: 'ChatGPT', patterns: ['ChatGPT', 'chatgpt', 'ChatGPT Desktop'] },
-  { id: 'gemini', name: 'Gemini', patterns: ['Gemini', 'gemini', 'Google Gemini'] },
-  { id: 'cursor', name: 'Cursor', patterns: ['Cursor', 'cursor'] },
-  { id: 'vscode', name: 'VS Code', patterns: ['Code', 'code', 'VSCode', 'Visual Studio Code'] },
-  { id: 'ollama', name: 'Ollama', patterns: ['ollama', 'Ollama'] },
-  { id: 'lmstudio', name: 'LM Studio', patterns: ['LM Studio', 'LM', 'LMStudio'] },
-];
 
 function createWindow() {
   // Get primary display to ensure window is visible
@@ -236,180 +215,8 @@ function parseProcessList(stdout) {
   return processes;
 }
 
-/**
- * 通过 VSCode Claude 扩展日志检测是否有活跃会话
- * 日志中直接包含 "state":"running" / "state":"idle"，这是最准确的
- */
-function checkVSCodeLogActivity() {
-  const logBasePath = require('os').homedir() + '/Library/Application Support/Code/logs';
-
-  // 如果日志目录不存在，返回无活动
-  if (!fs.existsSync(logBasePath)) {
-    return { hasActiveSession: false, lastStateChange: 0 };
-  }
-
-  try {
-    const now = Date.now();
-    let logFiles;
-
-    // 使用缓存避免每次都执行 find（缓存 TTL 30 秒）
-    if (cachedVSCodeLogFiles && (now - lastVSCodeLogCacheRefresh) < VSCODE_LOG_CACHE_TTL) {
-      logFiles = cachedVSCodeLogFiles;
-    } else {
-      // 查找所有 Claude 日志文件，按修改时间排序，取最新的 20 个
-      // VSCode 每个窗口每个会话都有独立日志，需要检查所有最近打开的窗口
-      const findCmd = `find "${logBasePath}" -name "Claude VSCode.log" -type f -print0 | xargs -0 ls -t | head -20`;
-      const result = require('child_process').execSync(findCmd, { encoding: 'utf8', timeout: 1000 });
-      logFiles = result.trim().split('\n').filter(l => l.length > 0);
-      cachedVSCodeLogFiles = logFiles;
-      lastVSCodeLogCacheRefresh = now;
-    }
-
-    if (logFiles.length === 0) {
-      return { hasActiveSession: false, lastStateChange: 0 };
-    }
-
-    // 检查所有最新日志文件，找全局最新的状态更新
-    let lastStateIsRunning = false;
-    let lastStateChangeTime = 0;
-    let lastActivityTime = 0; // 独立追踪最后一次活跃操作的时间（不被 idle 状态覆盖）
-
-    // 也检查文件修改时间：如果日志最近 2 分钟被修改过且没找到明确的 idle，也算作可能活跃
-    let latestFileMtime = 0;
-
-    for (const logFile of logFiles.slice(0, 10)) {
-      if (!fs.existsSync(logFile)) continue;
-
-      const stats = fs.statSync(logFile);
-      const fileMtime = stats.mtime.getTime();
-      if (fileMtime > latestFileMtime) {
-        latestFileMtime = fileMtime;
-      }
-
-      // 读取文件最后 16KB 足够找到最近的状态更新
-      const size = stats.size;
-      const toRead = Math.min(16 * 1024, size);
-      const buffer = Buffer.alloc(toRead);
-      const fd = fs.openSync(logFile, 'r');
-      fs.readSync(fd, buffer, 0, toRead, size - toRead);
-      fs.closeSync(fd);
-
-      const content = buffer.toString('utf8');
-      const lines = content.split('\n');
-
-      // 从后往前找最近的状态更新 - 注意：不要 break！
-      // 因为 update_session_state 之后可能还有 thought/tool_use 等活跃操作
-      for (let i = lines.length - 1; i >= 0; i--) {
-        const line = lines[i];
-        if (line.includes('update_session_state')) {
-          try {
-            // 提取状态
-            // running: 正在运行 → 活跃
-            // idle / waiting_input: 空闲/等待用户输入 → 不活跃
-            const runningMatch = line.match(/"state"\s*:\s*"running"/);
-            const idleMatch = line.match(/"state"\s*:\s*"idle"/);
-            const waitingInputMatch = line.match(/"state"\s*:\s*"waiting_input"/);
-
-            if (runningMatch || idleMatch || waitingInputMatch) {
-              // 提取时间戳从行首
-              const timeMatch = line.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)/);
-              let currentIsRunning = !!runningMatch;
-              // waiting_input 也是不活跃（等待用户操作）
-              if (waitingInputMatch) currentIsRunning = false;
-
-              if (timeMatch) {
-                const [, year, month, day, hour, min, sec, ms] = timeMatch;
-                const timestamp = new Date(`${year}-${month}-${day}T${hour}:${min}:${sec}.${ms}`).getTime();
-                if (timestamp > lastStateChangeTime) {
-                  lastStateChangeTime = timestamp;
-                  lastStateIsRunning = currentIsRunning;
-                }
-              } else if (fileMtime > lastStateChangeTime) {
-                lastStateChangeTime = fileMtime;
-                lastStateIsRunning = currentIsRunning;
-              }
-              // 注意：不要 break！继续往前找可能有更近的活跃操作
-            }
-          } catch (e) {
-            // ignore parse errors
-          }
-        } else if (
-          // 活跃操作检测点 - 只要有这些操作，就说明正在运行
-          line.includes('Stream started - received first chunk') ||
-          line.includes('Starting new request') ||
-          line.includes('Creating message') ||
-          line.includes('Streaming response') ||
-          line.includes('tool_use') ||
-          line.includes('"type": "thinking"') ||
-          line.includes('Executing tool') ||
-          line.includes('Reading file') ||
-          line.includes('Writing file') ||
-          line.includes('Executing command') ||
-          line.includes('Running tool') ||
-          line.includes('thinking delta')
-        ) {
-          // 以上任意一种日志出现都表示正在运行
-          const timeMatch = line.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)/);
-          if (timeMatch) {
-            const [, year, month, day, hour, min, sec, ms] = timeMatch;
-            const timestamp = new Date(`${year}-${month}-${day}T${hour}:${min}:${sec}.${ms}`).getTime();
-            // 更新独立的活跃时间（不被 idle 状态覆盖）
-            if (timestamp > lastActivityTime) {
-              lastActivityTime = timestamp;
-            }
-            if (timestamp > lastStateChangeTime) {
-              lastStateChangeTime = timestamp;
-              lastStateIsRunning = true;
-            }
-          } else if (fileMtime > lastActivityTime) {
-            lastActivityTime = fileMtime;
-          }
-        }
-      }
-    }
-
-    let hasActiveSession = false;
-
-    // 规则：
-    // 1. 如果有明确的状态更新：
-    if (lastStateChangeTime > 0) {
-      // 状态是 running → 直接活跃
-      if (lastStateIsRunning) {
-        hasActiveSession = (now - lastStateChangeTime) < 5 * 60 * 1000;
-      }
-      // 状态是 idle，但后面又有新的活跃操作（活跃操作比状态更新还新）→ 活跃
-      // 这解决了 update_session_state 先输出 idle，但 Claude 其实还在 thinking 的问题
-      else if (lastActivityTime > lastStateChangeTime && (now - lastActivityTime) < 10 * 1000) {
-        hasActiveSession = true;
-      }
-      // 否则就是真的 idle
-      else {
-        hasActiveSession = false;
-      }
-    }
-    // 2. 如果没找到明确状态更新，但日志最近 2 分钟内被修改过 → 算作活跃（保险起见）
-    else if (latestFileMtime > 0) {
-      hasActiveSession = (now - latestFileMtime) < 2 * 60 * 1000;
-    }
-
-    if (cachedVSCodeLogFiles) {
-      console.log(`📝 VSCode Log check: cached=${(now - lastVSCodeLogCacheRefresh)/1000 < VSCODE_LOG_CACHE_TTL/1000}, found ${logFiles.length} logs, lastState=${lastStateIsRunning ? 'RUNNING' : 'IDLE'}, lastChangeAge=${lastStateChangeTime > 0 ? ((now - lastStateChangeTime)/1000).toFixed(1) + 's' : 'none'}, lastActivityAge=${lastActivityTime > 0 ? ((now - lastActivityTime)/1000).toFixed(1) + 's' : 'none'}, latestFileAge=${((now - latestFileMtime)/1000).toFixed(1)}s, active=${hasActiveSession}`);
-    } else {
-      console.log(`📝 VSCode Log check: cached=no, found ${logFiles.length} logs, lastState=${lastStateIsRunning ? 'RUNNING' : 'IDLE'}, lastChangeAge=${lastStateChangeTime > 0 ? ((now - lastStateChangeTime)/1000).toFixed(1) + 's' : 'none'}, lastActivityAge=${lastActivityTime > 0 ? ((now - lastActivityTime)/1000).toFixed(1) + 's' : 'none'}, latestFileAge=${((now - latestFileMtime)/1000).toFixed(1)}s, active=${hasActiveSession}`);
-    }
-
-    return { hasActiveSession, lastStateChangeTime };
-  } catch (e) {
-    console.error('Error checking VSCode logs:', e);
-    return { hasActiveSession: false, lastStateChangeTime: 0 };
-  }
-}
-
-function checkAIRunning(callback) {
-  // 第一步：先检查 VSCode 日志（这是最准确的）
-  const logCheck = checkVSCodeLogActivity();
-
-  exec('ps -axo pid,ppid,%cpu,%mem,stat,command', (error, stdout) => {
+async function checkAIRunning(callback) {
+  exec('ps -axo pid,ppid,%cpu,%mem,stat,command', async (error, stdout) => {
     if (error) {
       console.error('Error checking processes:', error);
       if (callback) {
@@ -420,154 +227,39 @@ function checkAIRunning(callback) {
 
     const processes = parseProcessList(stdout);
 
-    // 检测 VSCode Claude Code 扩展
-    const vscodeClaudeProcesses = processes.filter(p => p.isVSCodeClaude);
-    let vscodeActiveCount = 0;
+    // 使用可扩展检测架构：运行所有已加载的检测器
+    const detectionResult = await detectorManager.detectAll({ processes });
 
-    for (const proc of vscodeClaudeProcesses) {
-      // 多因素综合判断：
-      // 1. 进程状态检测：R = running 正在运行，S = sleeping 睡眠空闲
-      //    This is the most reliable indicator from the OS kernel
-      const statIsRunning = proc.stat === 'R';
-
-      // 2. 子进程检测：有子进程且子进程本身活跃才算活跃
-      // 原理：VSCode Claude 任务运行时会 spawn 子进程，任务完成后子进程退出或变成 idle
-      // 需要子进程本身正在运行才判定为活跃
-      // 跳过工具类/临时 shell 命令：这些是 Claude 执行完就退出的临时任务，不算持续活跃
-      let hasActiveChildren = false;
-      for (const child of processes) {
-        if (child.ppid === proc.pid) {
-          // 跳过工具类命令（ps/grep/eval/shell 这些只是临时命令）
-          const cmd = child.commandLower;
-          if (cmd.includes('grep') || cmd.includes(' ps ') ||
-              cmd.includes('eval') || cmd.includes('source') ||
-              cmd.includes('/bin/zsh') || cmd.includes('/bin/bash') || cmd.includes('/bin/sh')) {
-            continue;
-          }
-          // 子进程必须本身活跃：正在运行 或者 CPU 不为零
-          if (child.stat === 'R' || child.cpu > 0.1) {
-            hasActiveChildren = true;
-            break;
-          }
-        }
-      }
-
-      // Only use RELIABLE indicators based on CURRENT state:
-      // - Command line arguments are FIXED at process startup - they never change!
-      // - Has active non-shell child processes: A task that's executing commands will always have active children
-      const isActive = hasActiveChildren;
-
-      if (isActive) {
-        vscodeActiveCount++;
-        console.log('✓ VSCode Claude active:', proc.pid, `stat=${proc.stat}`, `hasActiveChildren=${hasActiveChildren}`);
-      } else {
-        console.log('○ VSCode Claude idle:', proc.pid, `stat=${proc.stat}`, `hasActiveChildren=${hasActiveChildren}`);
-      }
-    }
-
-    // 检测终端 Claude Code
-    const terminalClaudeProcesses = processes.filter(p => {
-      const cmd = p.commandLower;
-      // 匹配终端中的 claude 命令，但排除 VSCode 扩展和应用程序
-      return (cmd === 'claude' || cmd.includes('claude ')) &&
-             !p.commandLower.includes('.vscode/') &&
-             !p.commandLower.includes('/applications/') &&
-             !p.commandLower.includes('claude-code');
-    });
-
-    // 终端 Claude 检测 - 改进方案（解决 idle 误报）
-    // 1. 有活跃子进程 = 正在执行工具/Bash 命令
-    // 2. 滑动窗口：连续 3 次检测中只要有一次 R 状态 = 活跃
-    // 3. 会话日志持续写入：检查 ~/.claude/projects/*/sessionId.jsonl 最近 3 秒有修改
-    //    （history.jsonl 不用了：只在用户发消息时更新，导致 idle 后误报）
-    let sessionLogActive = false;
-    try {
-      const projectsDir = require('os').homedir() + '/.claude/projects/';
-      if (fs.existsSync(projectsDir)) {
-        // 找出所有终端 Claude 会话对应的项目目录
-        for (const proc of terminalClaudeProcesses) {
-          const sessionPath = require('os').homedir() + `/.claude/sessions/${proc.pid}.json`;
-          if (fs.existsSync(sessionPath)) {
-            try {
-              const sessionData = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-              // 查找该会话对应的 jsonl 日志文件
-              const escapedCwd = sessionData.cwd.replace(/\//g, '-');
-              const projectPath = projectsDir + escapedCwd + '/' + sessionData.sessionId + '.jsonl';
-              if (fs.existsSync(projectPath)) {
-                const mtime = fs.statSync(projectPath).mtime.getTime();
-                // 会话日志 3 秒内有写入 = AI 正在生成
-                if (Date.now() - mtime < 3000) {
-                  sessionLogActive = true;
-                  break;
-                }
-              }
-            } catch (e) {}
-          }
-        }
-      }
-    } catch (e) {}
-
-    let terminalActiveCount = 0;
-    for (const proc of terminalClaudeProcesses) {
-      let hasActiveChildren = false;
-      for (const child of processes) {
-        if (child.ppid === proc.pid) {
-          const cmd = child.commandLower;
-          if (cmd.includes('grep') || cmd.includes(' ps ') ||
-              cmd.includes('tail') || cmd.includes('find') ||
-              cmd.includes('head')) {
-            continue;
-          }
-          if (child.stat === 'R') {
-            hasActiveChildren = true;
-            break;
-          }
-        }
-      }
-
-      // 初始化或更新滑动窗口
-      if (!terminalClaudeStateWindow[proc.pid]) {
-        terminalClaudeStateWindow[proc.pid] = [];
-      }
-      const window = terminalClaudeStateWindow[proc.pid];
-      window.unshift(proc.stat === 'R');
-      if (window.length > TERMINAL_STATE_WINDOW_SIZE) {
-        window.pop();
-      }
-
-      const hasRInWindow = window.some(v => v);
-      const isActive = hasActiveChildren || hasRInWindow || sessionLogActive;
-
-      if (isActive) {
-        terminalActiveCount++;
-        console.log('✓ Terminal Claude active:', proc.pid, `stat=${proc.stat}, windowR=${hasRInWindow}, children=${hasActiveChildren}, log=${sessionLogActive}`);
-      } else {
-        console.log('○ Terminal Claude idle:', proc.pid, `stat=${proc.stat}`);
-      }
-    }
-
-    // 清理已经不存在的进程的状态缓存
-    for (const pid of Object.keys(terminalClaudeStateWindow)) {
-      if (!terminalClaudeProcesses.find(p => p.pid == pid)) {
-        delete terminalClaudeStateWindow[pid];
-      }
-    }
+    // 找到 VSCode 检测结果用于兜底逻辑
+    const vscodeResult = detectionResult.results.find(r => r.id === 'claude-vscode');
+    let vscodeActiveCount = vscodeResult ? vscodeResult.activeCount : 0;
 
     // 兜底逻辑：如果日志检测到有活跃会话，但进程检测一个都没找到
     // 以日志为准（日志直接来自 Claude 扩展输出，最准确），算一个活跃任务
-    // 这样不会重复计数 - 只在进程检测没找到的时候才兜底
-    if (logCheck.hasActiveSession && vscodeActiveCount === 0 && vscodeClaudeProcesses.length > 0) {
+    if (vscodeResult && vscodeResult.logActive &&
+        vscodeActiveCount === 0 && vscodeResult.processCount > 0) {
       vscodeActiveCount = 1;
       console.log('✓ VSCode log indicates active session but process detection found none, counting 1 active task (log is more reliable)');
     }
 
+    // 重新计算总数
+    const terminalResult = detectionResult.results.find(r => r.id === 'claude-terminal');
+    const terminalActiveCount = terminalResult ? terminalResult.activeCount : 0;
     const totalTaskCount = vscodeActiveCount + terminalActiveCount;
     const currentIsRunning = totalTaskCount > 0;
 
-    console.log(`Result: currentIsRunning=${currentIsRunning}, VSCode active=${vscodeActiveCount}, Terminal active=${terminalActiveCount}, Total tasks=${totalTaskCount}`);
+    // 输出详细检测结果
+    for (const result of detectionResult.results) {
+      const displayCount = result.id === 'claude-vscode' ? vscodeActiveCount : result.activeCount;
+      if (displayCount > 0) {
+        console.log(`✓ ${result.name} active: ${displayCount} instances`);
+      } else {
+        console.log(`○ ${result.name}: idle`);
+      }
+    }
+    console.log(`Total active: ${totalTaskCount}, isRunning: ${currentIsRunning}`);
 
     // 防抖：需要连续多次不活跃才切换到 idle，避免波动
-    // Keep count consistent with state: if we're still holding active state, keep previous count
     let finalIsRunning = lastReportedIsRunning;
     let finalTotalTasks = lastReportedTotalTasks;
 
