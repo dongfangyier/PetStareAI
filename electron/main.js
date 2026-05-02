@@ -242,14 +242,16 @@ async function checkAIRunning(callback) {
       console.log('✓ VSCode log indicates active session but process detection found none, counting 1 active task (log is more reliable)');
     }
 
-    // 重新计算总数（包括 OpenCode 和 Qoder）
+    // 重新计算总数（包括 OpenCode、Qoder IDE、Qoder CLI）
     const terminalResult = detectionResult.results.find(r => r.id === 'claude-terminal');
     const terminalActiveCount = terminalResult ? terminalResult.activeCount : 0;
     const opencodeResult = detectionResult.results.find(r => r.id === 'opencode');
     const opencodeActiveCount = opencodeResult ? opencodeResult.activeCount : 0;
     const qoderResult = detectionResult.results.find(r => r.id === 'qoder');
     const qoderActiveCount = qoderResult ? qoderResult.activeCount : 0;
-    const totalTaskCount = vscodeActiveCount + terminalActiveCount + opencodeActiveCount + qoderActiveCount;
+    const qoderCliResult = detectionResult.results.find(r => r.id === 'qoder-cli');
+    const qoderCliActiveCount = qoderCliResult ? qoderCliResult.activeCount : 0;
+    const totalTaskCount = vscodeActiveCount + terminalActiveCount + opencodeActiveCount + qoderActiveCount + qoderCliActiveCount;
     const currentIsRunning = totalTaskCount > 0;
 
     // 输出详细检测结果
@@ -258,6 +260,7 @@ async function checkAIRunning(callback) {
       if (result.id === 'claude-vscode') displayCount = vscodeActiveCount;
       if (result.id === 'opencode') displayCount = opencodeActiveCount;
       if (result.id === 'qoder') displayCount = qoderActiveCount;
+      if (result.id === 'qoder-cli') displayCount = qoderCliActiveCount;
       if (displayCount > 0) {
         console.log(`✓ ${result.name} active: ${displayCount} instances`);
       } else {
