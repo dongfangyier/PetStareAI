@@ -19,6 +19,7 @@ What do you do to pass the time while your AI agent is working on a long task? A
   - ✅ Claude Code (VSCode extension)
   - ✅ Claude Code (terminal CLI)
   - ✅ OpenCode CLI
+  - ✅ Qoder IDE
   - 🚧 OpenCode App - In progress
   - ⚙️ Cursor, Codex, ChatGPT, Gemini, Ollama and more - Planned
 - 🎮 **Mini-game while waiting**: When AI is working, click popping colored balls to pass the time!

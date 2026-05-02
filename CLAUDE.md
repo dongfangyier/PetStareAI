@@ -28,6 +28,7 @@ This is a desktop pet application that monitors AI coding tools and entertains y
   - ✅ Claude Code (VSCode extension)
   - ✅ Claude Code (terminal CLI)
   - ✅ OpenCode CLI
+  - ✅ Qoder IDE
   - 🚧 OpenCode App - In progress
   - ⚙️ Cursor, Codex, ChatGPT, Gemini, Ollama and more - Planned
 - The cat is playful! It might tease you sometimes 😺

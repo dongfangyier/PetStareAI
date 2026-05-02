@@ -19,6 +19,7 @@ agent长任务工作时，你在做什么打发时间？一只可爱的桌面宠
   - ✅ Claude Code (VSCode 扩展)
   - ✅ Claude Code (终端 CLI)
   - ✅ OpenCode CLI
+  - ✅ Qoder IDE
   - 🚧 OpenCode App - 进行中
   - ⚙️ Cursor, Codex, ChatGPT, Gemini, Ollama 等 - 待开发
 - 🎮 **等待小游戏** - 当 AI 在运行时，点击弹出的彩球打发时间！
