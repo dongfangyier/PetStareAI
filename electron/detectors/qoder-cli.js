@@ -94,51 +94,23 @@ function checkQoderCliLogActivity() {
   }
 }
 
-/**
- * 检查是否有活跃子进程
- */
-function hasActiveChildren(proc, processes) {
-  for (const child of processes) {
-    if (child.ppid === proc.pid) {
-      const cmd = child.commandLower;
-      // 跳过 shell 和检测工具本身
-      if (cmd.includes('/bin/bash') || cmd.includes('/bin/sh') ||
-          cmd.includes('/bin/zsh') || cmd.includes('grep')) {
-        continue;
-      }
-      // 子进程运行状态 = 活跃
-      if (child.stat === 'R') {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 module.exports = {
   id: 'qoder-cli',
   name: 'Qoder CLI',
   description: '检测 Qoder CLI 活跃状态',
 
   async detect(processes) {
-    // 日志检测
+    // 完全依赖日志检测（唯一权威来源）
+    // 移除了进程/子进程检测，因为不可靠（启动、等待用户输入时都是 R 状态
     const logCheck = checkQoderCliLogActivity();
 
-    // 进程检测：子进程运行
+    // 只统计进程数，不做活跃判断
     const qoderProcesses = processes.filter(p =>
       p.commandLower.includes('qodercli') ||
       p.command.includes('/.qoder/bin/')
     );
 
-    let processActive = false;
-    for (const p of qoderProcesses) {
-      if (hasActiveChildren(p, processes)) {
-        processActive = true;
-        break;
-      }
-    }
-
-    const activeCount = (logCheck.hasActiveSession || processActive) ? 1 : 0;
+    const activeCount = logCheck.hasActiveSession ? 1 : 0;
 
     return {
       activeCount,

@@ -155,11 +155,12 @@ if (result.id === '[tool_id]') displayCount = [toolId]ActiveCount;
 ### 检测器最佳实践
 
 1. **日志为主，进程为辅**：日志是最准确的状态来源，进程/CPU 检测只做兜底
-2. **优先检测 idle 状态**：Idle 日志比活跃日志优先级更高（避免假活跃）
-3. **等待用户不算活跃**：`permission.requested` / `hasPendingTools=true` 一律算 idle
-4. **只看最后 N 行**：避免被历史日志干扰（通常 50-100 行足够）
-5. **添加调试日志**：打印 `lastActivity` / `lastIdle` 时间，方便排查问题
-6. **文件大小兜底**：只读日志尾部 16KB，避免大文件卡顿
+2. **⚠️ 绝对不要依赖进程 R 状态**：CLI 工具启动时、等待用户输入时都是 `stat=R`，会造成严重误判
+3. **优先检测 idle 状态**：Idle 日志比活跃日志优先级更高（避免假活跃）
+4. **等待用户不算活跃**：`permission.requested` / `hasPendingTools=true` 一律算 idle
+5. **只看最后 N 行**：避免被历史日志干扰（通常 50-100 行足够）
+6. **添加调试日志**：打印 `lastActivity` / `lastIdle` 时间，方便排查问题
+7. **文件大小兜底**：只读日志尾部 16KB，避免大文件卡顿
 
 ## Packaging Output
 

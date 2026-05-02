@@ -78,22 +78,11 @@ module.exports = {
     let activeCount = 0;
     const activePids = [];
 
-    // 滑动窗口检测 - 和原逻辑完全一致
+    // 检测活跃：只有子进程在跑工具 OR 会话日志有更新才算活跃
+    // 注意：移除了 hasRInWindow 检测，因为单纯 R 状态不可靠（启动、等待用户输入时都是 R）
     for (const proc of terminalClaudeProcesses) {
       let hasChildren = hasActiveChildren(proc, processes);
-
-      // 初始化或更新滑动窗口
-      if (!terminalClaudeStateWindow[proc.pid]) {
-        terminalClaudeStateWindow[proc.pid] = [];
-      }
-      const window = terminalClaudeStateWindow[proc.pid];
-      window.unshift(proc.stat === 'R');
-      if (window.length > TERMINAL_STATE_WINDOW_SIZE) {
-        window.pop();
-      }
-
-      const hasRInWindow = window.some(v => v);
-      const isActive = hasChildren || hasRInWindow || sessionLogActive;
+      const isActive = hasChildren || sessionLogActive;
 
       if (isActive) {
         activeCount++;

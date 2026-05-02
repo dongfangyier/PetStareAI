@@ -126,16 +126,6 @@ function isOpenCodeProcess(p) {
   return isDesktopApp || isCLI;
 }
 
-/**
- * 检查 helper 进程是否活跃
- * helper 进程 = opencode-cli（桌面）或 .opencode（CLI）
- * 这些才是真正做 AI 工作的进程
- */
-function isHelperProcessActive(helper) {
-  // R 状态 = 正在执行
-  return helper.stat === 'R';
-}
-
 module.exports = {
   id: 'opencode',
   name: 'OpenCode',
@@ -144,53 +134,17 @@ module.exports = {
   /**
    * 检测活跃的 OpenCode 会话
    *
-   * 简单逻辑（和 Claude Code 一致）:
-   * 1. 先检查日志 - 这是最准确的
-   * 2. 如果日志说活跃，直接报告活跃（最少 1 个）
-   * 3. 用进程检测补充日志延迟的情况
+   * 完全依赖日志检测（最准确）:
+   * - 移除了进程 R 状态检测，因为不可靠（启动、等待用户输入时都是 R）
    */
   async detect(processes) {
-    // 步骤 1: 日志检测（主要，最准确）
+    // 日志检测（唯一权威来源）
     const logCheck = checkOpenCodeLogActivity();
 
-    // 步骤 2: 进程检测（次要，验证）
-    // 检查是否有 helper 进程显示明显活跃迹象
+    // 只统计进程数，不做活跃判断
     const openCodeProcesses = processes.filter(p => isOpenCodeProcess(p));
-    const helperProcesses = openCodeProcesses.filter(p =>
-      // OpenCode 桌面应用的 helper 进程
-      p.commandLower.includes('opencode-cli') ||
-      p.commandLower.includes('opencode-ai') ||
-      // CLI 模式的 .opencode 进程
-      p.commandLower.includes('/.opencode')
-    );
 
-    let processActiveCount = 0;
-    for (const helper of helperProcesses) {
-      if (isHelperProcessActive(helper)) {
-        processActiveCount++;
-        console.log('✓ OpenCode helper active:', helper.pid, `cpu=${helper.cpu}%`);
-      }
-    }
-
-    // 步骤 3: 最终决策
-    // 如果日志说活跃 → 最少 1 个（日志是权威）
-    // 或者如果任何 helper 明显活跃 → 计数
-    // 最多 2 个（避免 "3 个实例" 问题，日志是全局的！）
-    let activeCount = 0;
-
-    if (logCheck.hasActiveSession) {
-      activeCount = 1;
-      console.log('✓ OpenCode log indicates active AI session');
-    }
-
-    // 日志延迟时的补充：如果进程检测到活跃但日志还没更新
-    if (processActiveCount > 0 && activeCount === 0) {
-      activeCount = processActiveCount;
-      console.log('✓ OpenCode process detection indicates activity');
-    }
-
-    // 安全上限：不太可能同时有超过 2 个真活跃会话
-    activeCount = Math.min(activeCount, 2);
+    const activeCount = logCheck.hasActiveSession ? 1 : 0;
 
     return {
       activeCount,
