@@ -12,6 +12,14 @@ agent长任务工作时，你在做什么打发时间？一只可爱的桌面宠
   <img src="assets/cat-icon.svg" alt="PetStareAI" width="200">
 </div>
 
+## 📸 效果展示
+
+| 状态 | 截图 | 说明 |
+|------|------|------|
+| **空闲** | <img src="assets/screenshots/idle.png" width="120"> | 猫咪静静待着，观察你的 AI 工具运行状态 |
+| **运行中** | <img src="assets/screenshots/busy.png" width="120"> | AI 正在工作，右上角显示活跃任务数量 |
+| **游戏中** | <img src="assets/screenshots/game.png" width="120"> | 点击彩球玩小游戏打发等待时间 |
+
 ## ✨ 功能特性
 
 - 🐱 **可爱动画桌面宠物** - 始终置顶在所有窗口之上
@@ -20,6 +28,7 @@ agent长任务工作时，你在做什么打发时间？一只可爱的桌面宠
   - ✅ Claude Code (终端 CLI)
   - ✅ OpenCode CLI
   - ✅ Qoder IDE
+  - ✅ Qoder CLI
   - 🚧 OpenCode App - 进行中
   - ⚙️ Cursor, Codex, ChatGPT, Gemini, Ollama 等 - 待开发
 - 🎮 **等待小游戏** - 当 AI 在运行时，点击弹出的彩球打发时间！

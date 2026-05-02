@@ -12,6 +12,14 @@ What do you do to pass the time while your AI agent is working on a long task? A
   <img src="assets/cat-icon.svg" alt="PetStareAI" width="200">
 </div>
 
+## 📸 Screenshots
+
+| State | Screenshot | Description |
+|-------|------------|-------------|
+| **Idle** | <img src="assets/screenshots/idle.png" width="120"> | Cat quietly watching your AI tools |
+| **Running** | <img src="assets/screenshots/busy.png" width="120"> | AI working, task count shown in corner |
+| **In Game** | <img src="assets/screenshots/game.png" width="120"> | Play mini-game while waiting for AI to finish |
+
 ## ✨ Features
 
 - 🐱 **Cute animated desktop pet** that stays on top of all windows
@@ -20,6 +28,7 @@ What do you do to pass the time while your AI agent is working on a long task? A
   - ✅ Claude Code (terminal CLI)
   - ✅ OpenCode CLI
   - ✅ Qoder IDE
+  - ✅ Qoder CLI
   - 🚧 OpenCode App - In progress
   - ⚙️ Cursor, Codex, ChatGPT, Gemini, Ollama and more - Planned
 - 🎮 **Mini-game while waiting**: When AI is working, click popping colored balls to pass the time!
