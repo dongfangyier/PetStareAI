@@ -99,7 +99,8 @@ function checkQoderLogActivity() {
           }
 
           // 检查 Stream Started - 用最新的时间戳为准
-          if (line.includes('ACP Stream Started') && timestamp > lastStateTime) {
+          // ❗ 注意：只有不包含 from=load 的才算真正的活跃（from=load 是加载历史记录）
+          if (line.includes('ACP Stream Started') && !line.includes('from=load') && timestamp > lastStateTime) {
             lastStateTime = timestamp;
             lastState = 'streaming';
           }
@@ -109,13 +110,20 @@ function checkQoderLogActivity() {
             lastStateTime = timestamp;
             lastState = 'completed';
           }
+
+          // 检查 chat_finish - 会话结束，不活跃
+          if (line.includes('notification type=chat_finish') && timestamp > lastStateTime) {
+            lastStateTime = timestamp;
+            lastState = 'completed';
+          }
         }
 
         // 判断状态
         const now = Date.now();
         const isRecent = (now - lastLogTime) < 5 * 60 * 1000; // 5 分钟内的日志才算
+        const stateIsRecent = lastStateTime > 0 && (now - lastStateTime) < 5 * 60 * 1000;
 
-        console.log(`🔍 Qoder: lastState=${lastState}, lastLogTime=${lastLogTime} (${Math.round((now - lastLogTime) / 1000)}s ago), hasPendingTools=${hasPendingTools}, isRecent=${isRecent}`);
+        console.log(`🔍 Qoder: lastState=${lastState}, lastStateTime=${lastStateTime} (${Math.round((now - lastStateTime) / 1000)}s ago), lastLogTime=${lastLogTime} (${Math.round((now - lastLogTime) / 1000)}s ago), hasPendingTools=${hasPendingTools}, isRecent=${isRecent}, stateIsRecent=${stateIsRecent}`);
 
         // 如果有挂起的工具（等待用户选择），直接返回不活跃
         if (hasPendingTools) {
@@ -123,7 +131,8 @@ function checkQoderLogActivity() {
           continue;
         }
 
-        if (!hasPendingTools && isRecent && lastState && (lastState === 'prompting' || lastState === 'streaming')) {
+        // ✅ 严格判断：必须有明确的状态转换，且状态是 prompting/streaming，且是最近的
+        if (lastState && stateIsRecent && (lastState === 'prompting' || lastState === 'streaming')) {
           console.log(`✓ Qoder log: BUSY (state=${lastState})`);
           return { hasActiveSession: true };
         }

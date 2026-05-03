@@ -134,9 +134,9 @@ function checkLogActivity() {
       else if (lastActivityTime > lastStateChangeTime && (nowTime - lastActivityTime) < 10 * 1000) {
         hasActiveSession = true;
       }
-    } else if (latestFileMtime > 0) {
-      hasActiveSession = (nowTime - latestFileMtime) < 2 * 60 * 1000;
     }
+    // ❌ 移除了 fallback: 不再用文件修改时间判断活跃
+    // 否则打开 VSCode 但没有会话时会被误判为活跃
 
     return { hasActiveSession, lastStateChangeTime };
   } catch (e) {
