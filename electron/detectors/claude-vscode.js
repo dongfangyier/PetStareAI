@@ -14,10 +14,11 @@ const LOG_BASE_PATH = require('os').homedir() + '/Library/Application Support/Co
 
 /**
  * 检查 VSCode Claude 日志中的活跃状态
+ * 支持多窗口、多会话检测
  */
 function checkLogActivity() {
   if (!fs.existsSync(LOG_BASE_PATH)) {
-    return { hasActiveSession: false, lastStateChange: 0 };
+    return { activeSessionCount: 0 };
   }
 
   try {
@@ -36,25 +37,16 @@ function checkLogActivity() {
     }
 
     if (logFiles.length === 0) {
-      return { hasActiveSession: false, lastStateChange: 0 };
+      return { activeSessionCount: 0 };
     }
 
-    let lastStateIsRunning = false;
-    let lastStateChangeTime = 0;
-    let lastActivityTime = 0;
-    let latestFileMtime = 0;
+    const sessionStates = new Map(); // sessionId -> { state, timestamp }
 
-    // 检查最新的 10 个日志文件
+    // 检查所有日志文件（按时间从新到旧）
     for (const logFile of logFiles.slice(0, 10)) {
       if (!fs.existsSync(logFile)) continue;
 
       const stats = fs.statSync(logFile);
-      const fileMtime = stats.mtime.getTime();
-      if (fileMtime > latestFileMtime) {
-        latestFileMtime = fileMtime;
-      }
-
-      // 读取文件尾部 16KB
       const size = stats.size;
       const toRead = Math.min(16 * 1024, size);
       const buffer = Buffer.alloc(toRead);
@@ -65,107 +57,54 @@ function checkLogActivity() {
       const content = buffer.toString('utf8');
       const lines = content.split('\n');
 
-      // 从后往前搜索状态变化
-      for (let i = lines.length - 1; i >= 0; i--) {
+      // 从后往前遍历（最新的在前）
+      for (let i = lines.length - 1; i >= Math.max(0, lines.length - 100); i--) {
         const line = lines[i];
 
-        if (line.includes('update_session_state')) {
-          const runningMatch = line.match(/"state"\s*:\s*"running"/);
-          const idleMatch = line.match(/"state"\s*:\s*"idle"/);
-          const waitingInputMatch = line.match(/"state"\s*:\s*"waiting_input"/);
+        // 只处理 update_session_state 状态变化
+        if (!line.includes('update_session_state')) continue;
 
-          if (runningMatch || idleMatch || waitingInputMatch) {
-            const timeMatch = line.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)/);
-            let currentIsRunning = !!runningMatch;
+        // 提取 sessionId 和 state
+        const sessionMatch = line.match(/"sessionId"\s*:\s*"([^"]+)"/);
+        if (!sessionMatch) continue;
+        const sessionId = sessionMatch[1];
 
-            if (timeMatch) {
-              const [, year, month, day, hour, min, sec, ms] = timeMatch;
-              const timestamp = new Date(`${year}-${month}-${day}T${hour}:${min}:${sec}.${ms}`).getTime();
-              if (timestamp > lastStateChangeTime) {
-                lastStateChangeTime = timestamp;
-                lastStateIsRunning = currentIsRunning;
-              }
-            } else if (fileMtime > lastStateChangeTime) {
-              lastStateChangeTime = fileMtime;
-              lastStateIsRunning = currentIsRunning;
-            }
-          }
-        } else if (
-          line.includes('Stream started - received first chunk') ||
-          line.includes('Starting new request') ||
-          line.includes('Creating message') ||
-          line.includes('Streaming response') ||
-          line.includes('tool_use') ||
-          line.includes('thinking') ||
-          line.includes('Executing tool') ||
-          line.includes('Reading file') ||
-          line.includes('Writing file') ||
-          line.includes('Executing command') ||
-          line.includes('Running tool')
-        ) {
-          // 活跃活动检测
-          const timeMatch = line.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)/);
-          if (timeMatch) {
-            const [, year, month, day, hour, min, sec, ms] = timeMatch;
-            const timestamp = new Date(`${year}-${month}-${day}T${hour}:${min}:${sec}.${ms}`).getTime();
-            if (timestamp > lastActivityTime) {
-              lastActivityTime = timestamp;
-            }
-            if (timestamp > lastStateChangeTime) {
-              lastStateChangeTime = timestamp;
-              lastStateIsRunning = true;
-            }
-          } else if (fileMtime > lastActivityTime) {
-            lastActivityTime = fileMtime;
-          }
+        // 这个会话已经确定过状态了，不需要再往前看（因为从后往前）
+        if (sessionStates.has(sessionId)) continue;
+
+        const isRunning = line.includes('"state":"running"');
+        const isIdle = line.includes('"state":"idle"');
+        const isWaiting = line.includes('"state":"waiting_input"');
+
+        if (!isRunning && !isIdle && !isWaiting) continue;
+
+        // 解析时间戳
+        const timeMatch = line.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)/);
+        let timestamp = stats.mtime.getTime();
+        if (timeMatch) {
+          const [, year, month, day, hour, min, sec, ms] = timeMatch;
+          timestamp = new Date(`${year}-${month}-${day}T${hour}:${min}:${sec}.${ms}`).getTime();
         }
+
+        sessionStates.set(sessionId, { state: isRunning ? 'running' : 'idle', timestamp });
       }
     }
 
-    const nowTime = Date.now();
-    let hasActiveSession = false;
-
-    // 决策逻辑
-    if (lastStateChangeTime > 0) {
-      if (lastStateIsRunning) {
-        hasActiveSession = (nowTime - lastStateChangeTime) < 5 * 60 * 1000;
-      }
-      // 状态变为 idle 但之后又有新活动 = 活跃
-      else if (lastActivityTime > lastStateChangeTime && (nowTime - lastActivityTime) < 10 * 1000) {
-        hasActiveSession = true;
+    // 统计活跃会话数
+    let activeSessionCount = 0;
+    for (const [sessionId, stateInfo] of sessionStates) {
+      const stateIsRecent = (now - stateInfo.timestamp) < 5 * 60 * 1000;
+      if (stateInfo.state === 'running' && stateIsRecent) {
+        activeSessionCount++;
+        console.log(`✓ VSCode session ${sessionId.slice(0, 8)}...: BUSY (${Math.round((now - stateInfo.timestamp) / 1000)}s ago)`);
       }
     }
-    // ❌ 移除了 fallback: 不再用文件修改时间判断活跃
-    // 否则打开 VSCode 但没有会话时会被误判为活跃
 
-    return { hasActiveSession, lastStateChangeTime };
+    return { activeSessionCount };
   } catch (e) {
     console.error('检查 Claude VSCode 日志失败:', e.message);
-    return { hasActiveSession: false, lastStateChange: 0 };
+    return { activeSessionCount: 0 };
   }
-}
-
-/**
- * 检查进程是否有活跃的子进程（工具执行中）
- */
-function hasActiveChildren(proc, processes) {
-  for (const child of processes) {
-    if (child.ppid === proc.pid) {
-      const cmd = child.commandLower;
-      // 跳过检测工具本身
-      if (cmd.includes('grep') || cmd.includes(' ps ') ||
-          cmd.includes('eval') || cmd.includes('source') ||
-          cmd.includes('/bin/zsh') || cmd.includes('/bin/bash') ||
-          cmd.includes('/bin/sh')) {
-        continue;
-      }
-      // 子进程必须本身活跃：正在运行 或者 CPU 不为零
-      if (child.stat === 'R' || child.cpu > 0.1) {
-        return true;
-      }
-    }
-  }
-  return false;
 }
 
 module.exports = {
@@ -177,7 +116,7 @@ module.exports = {
     // 1. 优先检查日志（最准确）
     const logCheck = checkLogActivity();
 
-    // 2. 检查是否有 Claude 进程（和原 parseProcessList 逻辑完全一致）
+    // 2. 检查进程数（仅用于展示）
     const claudeProcesses = processes.filter(p => {
       const cmd = p.commandLower;
       return (
@@ -198,20 +137,10 @@ module.exports = {
       );
     });
 
-    let processActiveCount = 0;
-    for (const proc of claudeProcesses) {
-      if (hasActiveChildren(proc, processes)) {
-        processActiveCount++;
-      }
-    }
-
-    // 3. 最终决策
-    const activeCount = logCheck.hasActiveSession ? 1 : processActiveCount;
-
     return {
-      activeCount,
-      message: claudeProcesses.length > 0 ? `${claudeProcesses.length} 个进程` : '未检测到进程',
-      logActive: logCheck.hasActiveSession,
+      activeCount: logCheck.activeSessionCount,
+      message: `VSCode ${logCheck.activeSessionCount} 个会话活跃`,
+      logActive: logCheck.activeSessionCount > 0,
       processCount: claudeProcesses.length,
     };
   },

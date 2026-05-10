@@ -162,6 +162,42 @@ if (result.id === '[tool_id]') displayCount = [toolId]ActiveCount;
 6. **添加调试日志**：打印 `lastActivity` / `lastIdle` 时间，方便排查问题
 7. **文件大小兜底**：只读日志尾部 16KB，避免大文件卡顿
 
+### 🚀 多会话检测（高级主题）
+
+**问题背景**：一个 AI 工具可能同时运行多个会话（多窗口/多标签页），需要正确统计活跃会话数。
+
+**各工具的日志模式与解决方案**：
+
+| 工具 | 日志模式 | 解决方案 | 关键点 |
+|------|----------|----------|--------|
+| **Claude VSCode** | 多文件（每个窗口一个日志），每个文件内按 `sessionId` 区分 | 按 `sessionId` 分组，每个会话独立判断状态 | `"sessionId":"..."` 在 `update_session_state` 行中 |
+| **Qoder IDE** | 单文件内多会话，`sessionId` 分布在不同行 | 按 `sessionId` 分组追踪，`State transition:` 行带状态 | `sessionId` 在 `ACP Stream Started` 等行中 |
+| **Qoder CLI** | 多目录（每个进程一个日志目录） | 遍历 `~/.qoder/logs/runs/` 下的所有目录，每个目录独立判断 | 每个目录对应一个独立会话 |
+| **Claude Terminal** | 多进程（每个终端一个进程） | 按 pid 匹配会话日志，每个进程独立判断 | `session.{pid}.json` 映射到项目日志 |
+| **OpenCode** | ⚠️ 单文件多会话，但关键行**不带 sessionId** | 近似方案：追踪每个 session 最后一次 `service=llm ... stream` 行号，对比全局最后 idle 行号 | `message.part.delta` 和 `session.idle` 行都不带 sessionId |
+
+**OpenCode 的特殊坑（最复杂）**：
+
+```text
+# 活跃标识行（带 sessionId）：
+INFO ... service=llm ... session.id=ses_xxx ... stream
+
+# 但是！内容输出行和结束行都不带 sessionId：
+INFO ... service=bus type=message.part.delta publishing  ❌ 不带 sessionId
+INFO ... service=bus type=session.idle publishing          ❌ 不带 sessionId
+```
+
+**解决方案**：只能用近似算法 - 每个会话最后一次 stream 的行号 vs 全局最后一次 idle 的行号。
+
+**检测不到的常见原因排查**：
+
+| 现象 | 可能原因 | 修复 |
+|------|----------|------|
+| 多个窗口只检测到 1 个 | 只检测了最新日志文件，没有遍历所有 | 遍历所有最近的日志文件/目录 |
+| 一直检测到 0 个 | 时间戳解析时区问题 | 不要解析日志内的时间戳，改用文件 mtime 或行号对比 |
+| 会话结束了还显示活跃 | 结束状态的正则不匹配 | 打印最后 20 行确认结束标识 |
+| 还没开始就显示活跃 | from=load 的历史记录被误判 | 过滤含 `from=load` 的行（Qoder） |
+
 ## Packaging Output
 
 - `dist/PetStareAI-1.0.0-arm64.dmg` - Apple Silicon installer

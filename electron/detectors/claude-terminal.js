@@ -1,7 +1,6 @@
 /**
  * Claude 终端检测器
  * 检测方式: 进程运行状态 + 子进程活动 + 会话日志
- * 和原 main.js 逻辑 100% 完全一致
  */
 
 const fs = require('fs');
@@ -13,7 +12,6 @@ const TERMINAL_STATE_WINDOW_SIZE = 3;
 
 /**
  * 检查是否有活跃的子进程（工具执行中）
- * 和原逻辑完全一致
  */
 function hasActiveChildren(proc, processes) {
   for (const child of processes) {
@@ -40,7 +38,7 @@ module.exports = {
   description: '检测终端运行的 Claude CLI 活跃状态',
 
   async detect(processes) {
-    // 进程过滤 - 和原逻辑完全一致
+    // 进程过滤
     const terminalClaudeProcesses = processes.filter(p => {
       const cmd = p.commandLower;
       return (cmd === 'claude' || cmd.includes('claude ')) &&
@@ -49,48 +47,43 @@ module.exports = {
              !cmd.includes('claude-code');
     });
 
-    // 会话日志检测 - 和原逻辑完全一致
-    let sessionLogActive = false;
-    try {
-      const projectsDir = require('os').homedir() + '/.claude/projects/';
-      if (fs.existsSync(projectsDir)) {
-        for (const proc of terminalClaudeProcesses) {
-          const sessionPath = require('os').homedir() + `/.claude/sessions/${proc.pid}.json`;
-          if (fs.existsSync(sessionPath)) {
-            try {
-              const sessionData = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-              const escapedCwd = sessionData.cwd.replace(/\//g, '-');
-              const projectPath = projectsDir + escapedCwd + '/' + sessionData.sessionId + '.jsonl';
-              if (fs.existsSync(projectPath)) {
-                const mtime = fs.statSync(projectPath).mtime.getTime();
-                // 3 秒内有写入 = AI 正在生成
-                if (Date.now() - mtime < 3000) {
-                  sessionLogActive = true;
-                  break;
-                }
-              }
-            } catch (e) {}
-          }
-        }
-      }
-    } catch (e) {}
+    // 检查每个进程自己的会话日志
+    const projectsDir = require('os').homedir() + '/.claude/projects/';
 
     let activeCount = 0;
     const activePids = [];
 
-    // 检测活跃：只有子进程在跑工具 OR 会话日志有更新才算活跃
-    // 注意：移除了 hasRInWindow 检测，因为单纯 R 状态不可靠（启动、等待用户输入时都是 R）
     for (const proc of terminalClaudeProcesses) {
       let hasChildren = hasActiveChildren(proc, processes);
-      const isActive = hasChildren || sessionLogActive;
+      let sessionLogActive = false;
 
+      // 只检查这个进程自己的会话日志
+      try {
+        const sessionPath = require('os').homedir() + `/.claude/sessions/${proc.pid}.json`;
+        if (fs.existsSync(sessionPath)) {
+          const sessionData = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
+          const escapedCwd = sessionData.cwd.replace(/\//g, '-');
+          const projectPath = projectsDir + escapedCwd + '/' + sessionData.sessionId + '.jsonl';
+          if (fs.existsSync(projectPath)) {
+            const stats = fs.statSync(projectPath);
+            const mtime = stats.mtime.getTime();
+            // 3 秒内有写入 = AI 正在生成
+            if (Date.now() - mtime < 3000 && stats.size > 100) {
+              sessionLogActive = true;
+              console.log(`✓ 终端 Claude session pid=${proc.pid}: BUSY (log age=${Date.now() - mtime}ms)`);
+            }
+          }
+        }
+      } catch (e) {}
+
+      const isActive = hasChildren || sessionLogActive;
       if (isActive) {
         activeCount++;
         activePids.push(proc.pid);
       }
     }
 
-    // 清理已经不存在的进程的状态缓存 - 和原逻辑完全一致
+    // 清理已经不存在的进程的状态缓存
     for (const pid of Object.keys(terminalClaudeStateWindow)) {
       if (!terminalClaudeProcesses.find(p => p.pid == pid)) {
         delete terminalClaudeStateWindow[pid];
@@ -100,7 +93,7 @@ module.exports = {
     return {
       activeCount,
       message: terminalClaudeProcesses.length > 0
-        ? `${terminalClaudeProcesses.length} 个终端实例`
+        ? `${activeCount}/${terminalClaudeProcesses.length} 个终端实例活跃`
         : '未检测到终端 Claude',
       processCount: terminalClaudeProcesses.length,
       activePids,
